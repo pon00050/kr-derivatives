@@ -37,7 +37,8 @@ def compute_hist_vol(
     # Use the most recent `window` prices
     series = clean.iloc[-window:] if len(clean) > window else clean
 
-    log_returns = np.log(series.values[1:] / series.values[:-1])
+    vals = series.to_numpy(dtype=float)
+    log_returns = np.log(vals[1:] / vals[:-1])
     vol = float(np.std(log_returns, ddof=1))
 
     if annualize:
@@ -60,5 +61,5 @@ def rolling_hist_vol(
         Series of annualized volatilities (same index as prices, NaN where
         insufficient data).
     """
-    log_returns = np.log(prices / prices.shift(1))
+    log_returns: pd.Series = np.log(prices / prices.shift(1))  # type: ignore[assignment]
     return log_returns.rolling(window).std(ddof=1) * np.sqrt(ANNUALIZATION_FACTOR)

@@ -62,7 +62,7 @@ def main() -> float:
     )
     score = cb_issuance_score(cb, stock_price=stock_price_at_issue, sigma=sigma, r=r)
 
-    print(f"\n  Dilution flag:    {'⚠ FLAGGED' if score['dilution_flag'] else '✓ Clean'}")
+    print(f"\n  Dilution flag:    {'[!] FLAGGED' if score['dilution_flag'] else '[OK] Clean'}")
     print(f"  Reason:           {score['flag_reason']}")
     print()
 

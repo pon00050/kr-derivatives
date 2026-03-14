@@ -67,6 +67,21 @@ Level 1 fires when `moneyness (S/K) > 1.0` at issuance — conversion option alr
 
 ---
 
+## Knowledge Layer — Work Needed
+
+The following `knowledge/` notes were planned but not written — they require domain research
+that hasn't been done yet. Do not fabricate content for these; write them only once you have
+verified sources.
+
+| Note | What it needs |
+|------|--------------|
+| `knowledge/context/cb-mechanics.md` | Regulatory cite for 70% repricing floor; exact text of 2023 FSC amendments to CB/BW rules |
+| `knowledge/context/pricing-models.md` | Verified comparison of Black-Scholes vs Tsiveriotis-Fernandes for Korean CBs; when credit-risk adjustment matters at KOSDAQ scale |
+| `knowledge/context/forensic-signals.md` | Academic or regulatory sources confirming ITM-at-issuance and repricing coercion as recognised manipulation patterns |
+| `knowledge/hypotheses/repricing-coercion.md` | Threshold calibration from actual SEIBRO data — can only be written after repricing events are available (KI-012) |
+
+---
+
 ## Phase 2 Prerequisites
 
 Before starting Phase 2 KRX data access:
