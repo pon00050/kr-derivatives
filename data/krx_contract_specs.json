@@ -1,0 +1,27 @@
+{
+  "KOSPI200_FUTURES": {
+    "multiplier": 500000,
+    "tick_size": 0.05,
+    "currency": "KRW",
+    "expiry_rule": "second_thursday_of_month",
+    "expiry_months": [3, 6, 9, 12],
+    "settlement": "cash"
+  },
+  "KOSPI200_OPTIONS": {
+    "multiplier": 500000,
+    "tick_size": 0.01,
+    "currency": "KRW",
+    "expiry_rule": "second_thursday_of_month",
+    "expiry_months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "settlement": "cash",
+    "exercise_style": "european"
+  },
+  "KOSPI200_MINI_FUTURES": {
+    "multiplier": 100000,
+    "tick_size": 0.02,
+    "currency": "KRW",
+    "expiry_rule": "second_thursday_of_month",
+    "expiry_months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "settlement": "cash"
+  }
+}

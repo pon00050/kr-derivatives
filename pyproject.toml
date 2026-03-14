@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kr-derivatives"
+version = "0.1.0"
+description = "Korean derivatives pricing and forensic analytics (CB/BW, options, futures)"
+authors = [
+    { name = "Jisoo Yi", email = "pon00050@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "pandas-datareader>=0.10",
+    "exchange-calendars>=4.13",
+    "requests-cache>=1.2",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+fast = ["py_vollib>=1.0.1"]
+advanced = ["financepy>=0.370"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "black",
+    "ruff",
+    "mypy",
+    "pandas-stubs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kr_derivatives"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

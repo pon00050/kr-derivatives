@@ -1,0 +1,38 @@
+[
+  {
+    "id": "KR-CB-001",
+    "corp_code": "01051092",
+    "label": "OTM issuance — stock below conversion price",
+    "S": 8500,
+    "K": 10000,
+    "T": 3.0,
+    "r": 0.035,
+    "sigma": 0.35,
+    "expected_call_value": 1842.0431,
+    "note": "BS call for OTM CB. moneyness=0.85, not flagged."
+  },
+  {
+    "id": "KR-CB-002",
+    "corp_code": "01207761",
+    "label": "ITM issuance — stock above conversion price",
+    "S": 12000,
+    "K": 10000,
+    "T": 2.0,
+    "r": 0.035,
+    "sigma": 0.35,
+    "expected_call_value": 3680.1120,
+    "note": "BS call for ITM CB. moneyness=1.20, dilution_flag=True."
+  },
+  {
+    "id": "KR-CB-003",
+    "corp_code": "01049167",
+    "label": "Deep ITM issuance — severe coercion signal",
+    "S": 15000,
+    "K": 10000,
+    "T": 1.5,
+    "r": 0.035,
+    "sigma": 0.40,
+    "expected_call_value": 6051.7651,
+    "note": "Deep ITM CB. moneyness=1.50, dilution_flag=True, high severity."
+  }
+]
