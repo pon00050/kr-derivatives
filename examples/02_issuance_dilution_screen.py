@@ -25,12 +25,12 @@ import pandas as pd
 from kr_derivatives.calendar.krx import previous_trading_day
 from kr_derivatives.contracts.convertible_bond import CBSpec
 from kr_derivatives.forensic.repricing import cb_issuance_score
-from kr_derivatives.market.volatility import compute_hist_vol
+from kr_derivatives.market.volatility import rolling_hist_vol
 from kr_derivatives.utils.constants import (
     DEFAULT_VOL_WINDOW,
     KTB_DEFAULT_RATE,
     MAX_BOARD_ISSUE_GAP_DAYS,
-    MIN_HIST_DAYS_FOR_VOL_FOR_VOL,
+    MIN_HIST_DAYS_FOR_VOL,
     SIGMA_FALLBACK,
 )
 
@@ -120,8 +120,9 @@ def build_vol_lookup(
 ) -> dict[tuple[str, object], float]:
     """Pre-compute per-ticker trailing volatility for every (ticker, date) pair.
 
-    Returns a dict mapping (ticker, date) → annualized vol. Rows with
-    insufficient history get no entry (caller should use SIGMA_FALLBACK).
+    Uses vectorized rolling vol computation. Returns a dict mapping
+    (ticker, date) → annualized vol. Dates with insufficient history
+    (< MIN_HIST_DAYS_FOR_VOL) are excluded (caller should use SIGMA_FALLBACK).
     """
     vol_map: dict[tuple[str, object], float] = {}
     pv = pv.copy()
@@ -129,17 +130,13 @@ def build_vol_lookup(
     pv = pv.sort_values(["ticker", "date"])
 
     for ticker, group in pv.groupby("ticker"):
-        prices = group["close"].values
+        if len(group) < MIN_HIST_DAYS_FOR_VOL:
+            continue
+        vols = rolling_hist_vol(group["close"], window=window)
         dates = group["date"].values
-        for i in range(len(dates)):
-            if i + 1 < MIN_HIST_DAYS_FOR_VOL:
-                continue
-            start = max(0, i + 1 - window)
-            segment = pd.Series(prices[start : i + 1])
-            try:
-                vol_map[(ticker, dates[i])] = compute_hist_vol(segment, window=window)
-            except ValueError:
-                continue
+        for d, v in zip(dates, vols):
+            if pd.notna(v):
+                vol_map[(ticker, d)] = float(v)
 
     return vol_map
 

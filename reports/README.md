@@ -39,7 +39,7 @@ Formal post-mortem of the completed screen run. Contains:
 | Run | Prep | Lessons | Key change | Flag rate | Outcome |
 |-----|------|---------|------------|-----------|---------|
 | 1 | — | `first_run_lessons.md` | Initial real-price run (board_date join via `previous_trading_day`) | 49.3% | Unadjusted price contamination identified; clean signal ~22% |
-| 2 | `second_run_prep.md` | — | Pending | — | — |
+| 2 | `second_run_prep.md` | `second_run_lessons.md` | Split-adjusted prices + gap filter + per-ticker vol | 49.3% | Denomination mismatch found: adjusted S vs unadjusted K |
 
 ---
 

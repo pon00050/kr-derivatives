@@ -1,6 +1,6 @@
 # Second Run Prep
 
-**Status:** Pending
+**Status:** Complete (2026-03-15)
 **Depends on:** Resolving items 1 and 2 from `first_run_lessons.md` before launching
 
 ---
@@ -145,13 +145,13 @@ split-adjustment issue.
 ## Pre-Run Checklist
 
 - [x] `price_volume.parquet` regenerated with split-adjusted prices (Option A) — XB-001 fixed 2026-03-15
-- [ ] Ticker 224060 Nov 2016 price verified — should be split-adjusted to ~740–2,000 range
+- [x] Ticker 224060 Nov 2016 price verified — split-adjusted prices ~244k–325k KRW (adjusted UP, not down)
 - [x] Gap filter (>365 days) added and tested on a sample — `MAX_BOARD_ISSUE_GAP_DAYS` in constants.py
 - [x] `board_date_is_approximate` column added to output — flags board_date == issue_date
 - [x] `sigma` per-ticker vol computation implemented — `build_vol_lookup()` with `compute_hist_vol()`
-- [ ] New `price_volume.parquet` copied to `data/input/`
+- [x] New `price_volume.parquet` copied to `data/input/` — 2026-03-15 (347k rows)
 - [x] Full suite still green: `uv run python -m pytest tests/ -q` — 79 passed
-- [ ] Runtime profiled for per-ticker vol computation
+- [x] Runtime profiled for per-ticker vol computation — 1.2s (vectorized rolling_hist_vol)
 
 ---
 
