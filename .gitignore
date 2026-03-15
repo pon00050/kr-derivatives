@@ -30,9 +30,10 @@ htmlcov/
 .env
 *.env.local
 
-# IDE
+# IDE / Tool caches
 .vscode/
 .idea/
+.claude/
 
 # OS
 .DS_Store
