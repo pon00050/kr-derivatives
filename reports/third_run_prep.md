@@ -1,6 +1,6 @@
 # Third Run Prep
 
-**Status:** Pending
+**Status:** Blocked — pykrx `adjusted=False` broken at KRX API level (see Execution Log below)
 **Depends on:** Resolving the adjusted/unadjusted price denomination mismatch identified in `second_run_lessons.md`
 
 ---
@@ -131,10 +131,10 @@ If ticker 214310 is delisted and pykrx returns no data even with `adjusted=False
 | Source | Adjusted prices | Unadjusted prices | Corporate action history |
 |--------|----------------|-------------------|------------------------|
 | pykrx 1.0.51 (installed) | Yes | **Broken** (empty) | No |
-| pykrx 1.2.4 (PyPI latest) | Yes | **Yes** (documented) | No |
+| pykrx 1.2.4 (PyPI latest) | Yes | **Broken** (KRX API returns malformed JSON — verified 2026-03-15) | No |
 | yfinance | Yes (Close = split-adj) | **No** (Close is adjusted) | No |
 | KRX Open API (openapi.krx.co.kr) | Unknown | Unknown | **No** dedicated endpoint |
-| KRX Data Marketplace (data.krx.co.kr) | Yes | Yes (via pykrx) | No |
+| KRX Data Marketplace (data.krx.co.kr) | **Broken** (JSON parse error) | **Broken** | No |
 | DART API (opendart.fss.or.kr) | N/A | N/A | **Partial** — 감자결정 disclosures available via list.json endpoint |
 
 ### DART API findings
@@ -143,12 +143,13 @@ If ticker 214310 is delisted and pykrx returns no data even with `adjusted=False
 - Corporate action disclosures: queryable via `list.json` general disclosure search (not via dedicated endpoints — the specific URLs like `crcRdcpDecsn.json` returned "wrong URL" errors)
 - For 054180: two 감자결정 (capital reduction) filings found with full detail (ratios, dates, share counts)
 
-### pykrx behavior
+### pykrx behavior (updated 2026-03-15 after upgrade to 1.2.4)
 
-- `adjusted=True`: Works correctly. Retroactively scales all historical prices for splits/consolidations.
-- `adjusted=False` in 1.0.51: Returns empty DataFrames for ALL tickers (confirmed with Samsung, 214310, 054180).
-- API signature supports the parameter: `(fromdate, todate, ticker, freq='d', adjusted=True, name_display=False)`
-- The parameter exists but the implementation is broken in 1.0.51. PyPI docs for 1.2.4 show working examples.
+- `adjusted=True`: Works correctly via Naver backend. Retroactively scales all historical prices for splits/consolidations.
+- `adjusted=False` in 1.0.51: Returns empty DataFrames — parameter existed but was non-functional.
+- `adjusted=False` in 1.2.4: Parameter is functional in code, routes to KRX direct API (`data.krx.co.kr`), but **KRX API itself returns malformed JSON** — empty DataFrames for ALL tickers. Server-side issue, not a pykrx bug.
+- API signature: `(fromdate, todate, ticker, freq='d', adjusted=True, name_display=False)`
+- Naver backend (adjusted=True) and KRX backend (adjusted=False) are completely independent code paths — one working does not imply the other works.
 
 ### Existing code architecture
 
@@ -175,8 +176,8 @@ If ticker 214310 is delisted and pykrx returns no data even with `adjusted=False
 
 ## Pre-Run Checklist
 
-- [ ] pykrx upgraded from 1.0.51 to 1.2.4 in kr-forensic-finance
-- [ ] `adjusted=False` verified working (Samsung pre-split test)
+- [x] pykrx upgraded from 1.0.51 to 1.2.4 in kr-forensic-finance
+- [ ] ~~`adjusted=False` verified working (Samsung pre-split test)~~ **FAILED — see Execution Log**
 - [ ] `extract_price_volume.py` modified to output both `close` and `close_unadj`
 - [ ] `price_volume.parquet` regenerated with dual columns
 - [ ] Validation cases checked (054180, 214310, 060230)
@@ -186,6 +187,88 @@ If ticker 214310 is delisted and pykrx returns no data even with `adjusted=False
 - [ ] Full run executed
 - [ ] Standard inspection queries run
 - [ ] `third_run_lessons.md` written
+
+---
+
+## Execution Log — 2026-03-15 Attempt
+
+### Step 1: pykrx upgrade — COMPLETED, GATE FAILED
+
+**What succeeded:**
+- `pyproject.toml` updated: `"pykrx"` → `"pykrx>=1.2.0"`
+- `uv lock && uv sync` resolved to pykrx 1.2.4 (also downgraded numpy 2.4.2 → 1.26.4, removed datetime/xlrd/zope-interface)
+- `adjusted=True` continues to work via Naver backend (Samsung returns 53,700 KRW for 2025-03-10)
+
+**What failed:**
+- `adjusted=False` returns **empty DataFrame for all tickers**, including Samsung (005930) on recent dates (2025-03-10 to 2025-03-14)
+- This is NOT a version issue — pykrx 1.2.4 has the correct API signature but the underlying data source is broken
+
+### Root cause analysis
+
+pykrx 1.2.4 routes `adjusted=True` and `adjusted=False` through **completely different backends**:
+
+| Parameter | Backend | Endpoint | Status |
+|-----------|---------|----------|--------|
+| `adjusted=True` | Naver Finance | `fchart.stock.naver.com/sise.nhn` (XML) | **Working** |
+| `adjusted=False` | KRX direct API | `data.krx.co.kr/comm/bldAttendant/getJsonData.cmd` | **Broken** |
+
+The failure chain for `adjusted=False`:
+1. `stock_api.get_market_ohlcv_by_date(adjusted=False)` calls `krx.get_market_ohlcv_by_date()`
+2. That calls `get_stock_ticker_isin(ticker)` to convert ticker → ISIN
+3. `get_stock_ticker_isin()` instantiates `StockTicker()` singleton
+4. `StockTicker.__init__()` calls `상장종목검색().fetch("ALL")` — a POST to `data.krx.co.kr`
+5. KRX returns HTTP 200 but with **malformed JSON** (line 15, column 3)
+6. `requests.JSONDecodeError` is raised
+7. The `@dataframe_empty_handler` decorator catches the exception and returns `DataFrame()`
+8. `StockTicker().listed` is an empty DataFrame → ticker lookup returns None → ISIN is None → OHLCV fetch is skipped
+
+The error: `simplejson.errors.JSONDecodeError: Expecting value: line 15 column 3 (char 33)`
+
+This is a **KRX server-side issue** — the API endpoint either changed its response format, added anti-scraping protection, or requires different request headers/cookies that pykrx 1.2.4 doesn't send. Even calling the KRX endpoint directly with known ISINs fails with the same JSON parse error.
+
+### Other KRX-dependent endpoints also broken
+
+- `get_market_cap_by_date()` — also uses KRX backend, also returns empty (would have been useful for share count / adjustment factor computation)
+- `전종목시세().fetch()` — same JSON decode error
+- `개별종목시세().fetch()` with hardcoded ISIN — same error
+
+### What the research phase got wrong
+
+The planning research verified that:
+1. pykrx >=1.2.0 has `adjusted=False` in its function signature ✓
+2. PyPI documentation shows working examples ✓
+3. The parameter didn't exist in 1.0.51 ✓
+
+But it **did not make a live API call** to verify that KRX actually returns data. The PyPI examples may have worked when they were written but the KRX endpoint has since broken. This is a runtime dependency on an external government API that cannot be verified from documentation alone.
+
+### Alternatives explored (not yet resolved)
+
+| Alternative | Status | Notes |
+|-------------|--------|-------|
+| Direct KRX API call (bypass pykrx) | Failed | Same JSON parse error — server-side issue |
+| `get_market_cap_by_date()` for share counts | Failed | Also uses broken KRX backend |
+| Naver Finance unadjusted prices | Not available | Naver only serves adjusted (split-corrected) data |
+| FinanceDataReader | Not yet tested | Scaffolded in extract_price_volume.py but not installed |
+| yfinance | No unadjusted | `auto_adjust=True` is the only reliable mode |
+| Compute adjustment factor from listed shares | Blocked | Would need working `get_market_cap_by_date()` or alternative share data source |
+
+### Current state of kr-forensic-finance
+
+- `pyproject.toml` has been modified (`pykrx>=1.2.0`) and `uv.lock` regenerated
+- No code changes to `extract_price_volume.py` yet (blocked on gate check)
+- pykrx 1.2.4 is installed in `.venv`
+- numpy was downgraded to 1.26.4 as a side effect — need to verify this doesn't break anything
+
+### Decision needed
+
+The plan cannot proceed as written. Options:
+
+1. **Find an alternative unadjusted price source** (FinanceDataReader, direct Naver scraping, KRX Open API portal)
+2. **Compute adjustment factors from corporate action data** (DART 감자결정 filings already queryable — confirmed in Run 2 investigation)
+3. **Build a manual adjustment table** for the 50 affected tickers from DART disclosures
+4. **Accept adjusted prices and adjust K instead** — multiply DART exercise prices by cumulative split factors derived from DART filings
+
+Option 4 is architecturally inverted (adjusting K to match S instead of getting raw S to match raw K) but may be more robust since DART API is reliable and under our control.
 
 ---
 

@@ -39,17 +39,69 @@ R = KTB_DEFAULT_RATE
 DATA_DIR = Path(__file__).parent.parent / "data" / "input"
 
 
-def load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None]:
     cb = pd.read_parquet(DATA_DIR / "cb_bw_events.parquet")
     tm = pd.read_parquet(DATA_DIR / "corp_ticker_map.parquet")
     pv = pd.read_parquet(DATA_DIR / "price_volume.parquet")
-    return cb, tm, pv
+    ca_path = DATA_DIR / "corp_actions.parquet"
+    ca = pd.read_parquet(ca_path) if ca_path.exists() else None
+    return cb, tm, pv, ca
+
+
+def build_adjustment_factors(
+    ca: pd.DataFrame | None,
+) -> dict[str, list[tuple[object, float]]]:
+    """Build a lookup of (effective_date, consolidation_ratio) per corp_code.
+
+    Returns dict mapping corp_code → sorted list of (effective_date, factor)
+    where factor = shares_before / shares_after (e.g. 10.0 for a 10:1 consolidation).
+    """
+    if ca is None or ca.empty:
+        return {}
+
+    ca = ca.copy()
+    ca["effective_date"] = pd.to_datetime(ca["effective_date"], errors="coerce").dt.date
+    ca = ca.dropna(subset=["effective_date", "shares_before", "shares_after"])
+    ca = ca[ca["shares_after"] > 0]
+
+    result: dict[str, list[tuple[object, float]]] = {}
+    for _, row in ca.iterrows():
+        cc = str(row["corp_code"]).zfill(8)
+        factor = row["shares_before"] / row["shares_after"]
+        if factor <= 1.0:
+            continue  # Not a consolidation (could be a partial cancellation)
+        result.setdefault(cc, []).append((row["effective_date"], factor))
+
+    # Sort by date ascending
+    for cc in result:
+        result[cc].sort(key=lambda x: x[0])
+
+    return result
+
+
+def cumulative_factor(
+    actions: list[tuple[object, float]],
+    after_date: object,
+) -> float:
+    """Compute cumulative consolidation factor for actions occurring after after_date.
+
+    pykrx adjusted prices have ALL consolidations baked in retroactively.
+    DART exercise prices are at original denomination. To align them,
+    multiply K by the product of all consolidation factors that occurred
+    AFTER the CB was issued.
+    """
+    factor = 1.0
+    for eff_date, ratio in actions:
+        if eff_date > after_date:
+            factor *= ratio
+    return factor
 
 
 def build_price_lookup(
     cb: pd.DataFrame,
     tm: pd.DataFrame,
     pv: pd.DataFrame,
+    ca: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Join cb_bw_events to closing price on the last KRX trading day on or
     before each board_date.
@@ -111,6 +163,30 @@ def build_price_lookup(
     # Change 3: Flag rows where board_date was defaulted to issue_date
     cb["board_date_is_approximate"] = cb["board_date"] == cb["issue_date"]
 
+    # Change 4: Adjust exercise_price for post-issuance share consolidations
+    adj_factors = build_adjustment_factors(ca)
+    adjusted_count = 0
+    if adj_factors:
+        factors = []
+        for _, row in cb.iterrows():
+            cc = str(row["corp_code"]).zfill(8)
+            actions = adj_factors.get(cc)
+            if actions and row["issue_date"] is not None:
+                f = cumulative_factor(actions, row["issue_date"])
+                factors.append(f)
+                if f > 1.0:
+                    adjusted_count += 1
+            else:
+                factors.append(1.0)
+        cb["k_adjustment_factor"] = factors
+        cb["exercise_price_adjusted"] = cb["exercise_price"] * cb["k_adjustment_factor"]
+    else:
+        cb["k_adjustment_factor"] = 1.0
+        cb["exercise_price_adjusted"] = cb["exercise_price"]
+
+    if adjusted_count:
+        print(f"  {adjusted_count} rows had exercise_price adjusted for post-issuance consolidations")
+
     return cb
 
 
@@ -154,7 +230,10 @@ def run_screen(
             skipped += 1
             continue
         try:
-            cb = CBSpec.from_parquet_row(row.to_dict())
+            row_dict = row.to_dict()
+            # Use consolidation-adjusted exercise price for CBSpec
+            row_dict["exercise_price"] = row.get("exercise_price_adjusted", row["exercise_price"])
+            cb = CBSpec.from_parquet_row(row_dict)
         except (ValueError, KeyError):
             skipped += 1
             continue
@@ -173,6 +252,7 @@ def run_screen(
         )
         score["sigma"] = sigma
         score["board_date_is_approximate"] = row["board_date_is_approximate"]
+        score["k_adjustment_factor"] = row.get("k_adjustment_factor", 1.0)
         results.append(score)
 
     if skipped:
@@ -185,13 +265,17 @@ def run_screen(
 
 def main() -> None:
     print("Loading inputs...")
-    cb, tm, pv = load_inputs()
+    cb, tm, pv, ca = load_inputs()
     print(f"  cb_bw_events:    {len(cb):,} rows")
     print(f"  corp_ticker_map: {len(tm):,} rows")
     print(f"  price_volume:    {len(pv):,} rows")
+    if ca is not None:
+        print(f"  corp_actions:    {len(ca):,} rows")
+    else:
+        print("  corp_actions:    not found (no K adjustment)")
 
     print("\nJoining to closing prices...")
-    joined = build_price_lookup(cb, tm, pv)
+    joined = build_price_lookup(cb, tm, pv, ca)
     print(f"  Rows with price: {len(joined):,}")
 
     print("\nComputing per-ticker trailing volatility...")
