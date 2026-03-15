@@ -40,7 +40,8 @@ Formal post-mortem of the completed screen run. Contains:
 |-----|------|---------|------------|-----------|---------|
 | 1 | — | `first_run_lessons.md` | Initial real-price run (board_date join via `previous_trading_day`) | 49.3% | Unadjusted price contamination identified; clean signal ~22% |
 | 2 | `second_run_prep.md` | `second_run_lessons.md` | Split-adjusted prices + gap filter + per-ticker vol | 49.3% | Denomination mismatch found: adjusted S vs unadjusted K |
-| 3 | `third_run_prep.md` | — | Pending | — | — |
+| 3 | `third_run_prep.md` | `third_run_lessons.md` | Adjust K via DART corporate actions (Path B) | 34.0% | Flag rate -15.3pp, extreme moneyness -87%; 32 outliers remain |
+| 4 | `fourth_run_prep.md` | — | Resolve 32 remaining >10x outliers | — | — |
 
 ---
 
@@ -49,11 +50,12 @@ Formal post-mortem of the completed screen run. Contains:
 Follow this sequence for every run:
 
 1. **Write `{n}_run_prep.md`** — document all code/data changes and expected outcomes
-2. **Inspect input data** — verify row counts, null rates, date ranges, price coverage
-3. **Full run:** `uv run python examples/02_issuance_dilution_screen.py`
-4. **Inspect output** — run the standard inspection queries (see below)
-5. **Write `{n}_run_lessons.md`** — post-mortem including flag rate, quality findings, remaining issues
-6. **Commit** — output CSV + both report files
+2. **Sync input data:** `bash ecosystem.sh copy-parquets` (from the hub repo) — ensures `price_volume.parquet`, `cb_bw_events.parquet`, and `corp_actions.parquet` are current
+3. **Inspect input data** — verify row counts, null rates, date ranges, price coverage
+4. **Full run:** `uv run python examples/02_issuance_dilution_screen.py`
+5. **Inspect output** — run the standard inspection queries (see below)
+6. **Write `{n}_run_lessons.md`** — post-mortem including flag rate, quality findings, remaining issues
+7. **Commit** — output CSV + both report files
 
 ---
 
