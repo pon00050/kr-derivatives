@@ -31,6 +31,7 @@ dev = [
     "ruff",
     "mypy",
     "pandas-stubs",
+    "types-requests",
 ]
 
 [tool.hatch.build.targets.wheel]
