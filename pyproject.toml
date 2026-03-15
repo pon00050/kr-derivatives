@@ -36,6 +36,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/kr_derivatives"]
 
+[tool.uv]
+compile-bytecode = false
+
 [tool.mypy]
 python_version = "3.11"
 strict = false
