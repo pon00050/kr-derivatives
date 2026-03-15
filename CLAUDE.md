@@ -1,7 +1,18 @@
-# CLAUDE.md — kr-derivatives
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Korean derivatives pricing and forensic analytics package.
 Standalone — no filesystem dependency on kr-forensic-finance.
+
+## Ecosystem
+
+Part of the Korean forensic accounting toolkit.
+- Hub: `../forensic-accounting-toolkit/` | [GitHub](https://github.com/pon00050/forensic-accounting-toolkit)
+- Task board: https://github.com/users/pon00050/projects/1
+- Role: Analysis library
+- Depends on: none (reads data files from kr-forensic-finance, not code imports)
+- Consumed by: kr-forensic-finance (CB/BW scoring via MCP tool #11)
 
 ---
 
@@ -11,7 +22,7 @@ Standalone — no filesystem dependency on kr-forensic-finance.
 # Install (including dev extras)
 uv sync --extra dev
 
-# Run tests
+# Run all tests
 uv run python -m pytest tests/ -v
 
 # Run a single test file
@@ -20,10 +31,8 @@ uv run python -m pytest tests/unit/test_black_scholes.py -v
 # Type-check
 uv run mypy src/
 
-# Run example
+# Run examples
 uv run python examples/01_cb_fair_value.py
-
-# Screen cb_bw_events.parquet (pass your own path)
 uv run python examples/02_issuance_dilution_screen.py \
     --data-path /path/to/cb_bw_events.parquet
 ```
@@ -36,48 +45,58 @@ uv run python examples/02_issuance_dilution_screen.py \
 src/kr_derivatives/
 ├── pricing/         # Black-Scholes: bs_call, bs_put, implied_vol, greeks
 ├── contracts/       # CBSpec, WarrantSpec — match cb_bw_events.parquet schema
-├── forensic/        # cb_issuance_score (Phase 1), repricing_coercion_score (Phase 2)
-├── market/          # compute_hist_vol, fetch_ktb_rate (FRED fallback 3.5%)
+├── forensic/        # cb_issuance_score (Level 1), composite_score; repricing_coercion_score (Phase 2)
+├── market/          # compute_hist_vol, fetch_ktb_rate (FRED + 3.5% fallback)
 ├── calendar/        # KRX trading calendar via exchange_calendars XKRX
 ├── utils/           # constants (FLOOR_RULE=0.70, KTB_DEFAULT_RATE=0.035), dates
 ├── surfaces/        # Phase 2: SVI vol surface (stub)
 └── data/            # Phase 2: KRX Open API reader (stub)
 ```
 
+### Public API
+
+All primary symbols are importable directly from `kr_derivatives`:
+
+```python
+from kr_derivatives import (
+    bs_call, bs_put, implied_vol, greeks,       # pricing
+    CBSpec, WarrantSpec, ContractType,           # contracts
+    cb_issuance_score, composite_score,          # forensic
+    compute_hist_vol, fetch_ktb_rate,            # market
+)
+```
+
 ### Forensic signal levels
 
-| Level | Signal | Data source | Status |
-|-------|--------|-------------|--------|
-| 1 | At-issuance ITM detection (`cb_issuance_score`) | DART `exercise_price` | Implemented |
-| 2 | Per-repricing coercion (`repricing_coercion_score`) | SEIBRO repricing events | Phase 2 — `NotImplementedError` |
+| Level | Function | Data source | Status |
+|-------|----------|-------------|--------|
+| 1 | `cb_issuance_score` | DART `exercise_price` | Implemented |
+| 1 wrapper | `composite_score` | Wraps Level 1; has_repricing_score=False | Implemented |
+| 2 | `repricing_coercion_score` | SEIBRO repricing events | Phase 2 — `NotImplementedError` |
 
-Level 1 fires when `moneyness (S/K) > 1.0` at issuance — conversion option already in-the-money, bondholder subsidy guaranteed from day one.
+Level 1 fires when `moneyness (S/K) > 1.0` at issuance — conversion option already in-the-money.
+`composite_score` severity tiers: `high` (moneyness > 1.10), `medium` (> 1.00), `low`.
+
+**Why B-S is appropriate for Level 1:** The question is purely "was this option in-the-money at issuance?" — a single-point-in-time snapshot, not a full CB valuation. B-S prices a European call; we are not modelling the path-dependent hold-to-maturity CB value or early conversion. The static moneyness and `bs_call_value` at day zero are all that is needed to establish whether value was transferred to the bondholder at shareholders' expense. Full American/lattice pricing is only relevant for Level 2 (per-repricing event scoring over time).
+
+### Test structure
+
+- `tests/unit/` — isolated unit tests per module; no external I/O
+- `tests/golden/` — end-to-end price checks against known CB fair values
+- `tests/conftest.py` — shared fixtures: `sample_cb`, `itm_cb`, `price_series`, `market_data`
 
 ---
 
 ## Conventions
 
-- **No py_vollib dependency.** IV solver is pure scipy (Newton-Raphson + Brent fallback). py_vollib has no Python 3.11 wheels — source-only, unmaintained since 2017.
-- **No KRX scraping in Phase 1.** KRX Marketplace POST endpoint (`data.krx.co.kr/comm/bldAttendant/getJsonData.cmd`) is undocumented and fragile. Phase 2 uses `openapi.krx.co.kr` (official, requires key registration).
+- **No py_vollib dependency.** IV solver is pure scipy (Newton-Raphson + Brent fallback). py_vollib has no Python 3.11 wheels.
+- **No KRX scraping in Phase 1.** Phase 2 uses `openapi.krx.co.kr` (official, requires key registration). Do NOT use `data.krx.co.kr`.
 - **uv.lock is committed.** After any `pyproject.toml` dependency change, run `uv lock` and commit both files together.
-- **TDD.** Tests must exist and fail before implementation. All new behavior goes test-first.
+- **TDD.** Tests must exist and fail before implementation.
 - `src/kr_derivatives/utils/constants.py` — all shared numeric constants; never hardcode in module code.
 - Prices in **KRW** (Korean Won) throughout. No unit mixing.
-- All functions must handle edge cases: T=0, sigma=0, zero prices → documented return or ValueError.
-
----
-
-## Knowledge Layer
-
-Three context notes written (gitignored — private Obsidian layer):
-- `knowledge/context/cb-mechanics.md` — 70% floor rule, regulatory tightening chronology (2020-2024), FSS enforcement data
-- `knowledge/context/pricing-models.md` — B-S vs T-F comparison, Korean practitioner standards, when each matters for forensic use
-- `knowledge/context/forensic-signals.md` — academic backing (Yoon 2020, Park 2024, Baek & Gwak 2021), FSC enforcement documentation, signal combining logic
-
-One note still pending:
-| Note | What it needs |
-|------|--------------|
-| `knowledge/hypotheses/repricing-coercion.md` | Threshold calibration from actual SEIBRO repricing events — write after KI-012 resolves |
+- All functions must handle edge cases: T=0, sigma=0, zero prices → documented return or `ValueError`.
+- `CBSpec.from_parquet_row(row)` is the canonical constructor when loading from `cb_bw_events.parquet`.
 
 ---
 
@@ -85,7 +104,6 @@ One note still pending:
 
 Before starting Phase 2 KRX data access:
 - Register at `openapi.krx.co.kr` to obtain KRX Open API key
-- Do NOT use the unofficial POST endpoint at `data.krx.co.kr`
 
 Before implementing `repricing_coercion_score`:
 - SEIBRO API key must be active (see KI-012 in kr-forensic-finance)

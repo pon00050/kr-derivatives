@@ -9,6 +9,7 @@ import pytest
 from kr_derivatives.calendar.krx import (
     is_trading_day,
     next_trading_day,
+    previous_trading_day,
     second_thursday_of_month,
     trading_days_between,
 )
@@ -40,6 +41,34 @@ class TestNextTradingDay:
         saturday = date(2024, 1, 6)
         result = next_trading_day(saturday)
         assert result == date(2024, 1, 8)  # Monday
+
+
+class TestPreviousTradingDay:
+    def test_trading_day_returns_itself(self):
+        d = date(2024, 1, 2)  # Known trading day
+        assert previous_trading_day(d) == d
+
+    def test_saturday_snaps_to_friday(self):
+        saturday = date(2024, 1, 6)
+        result = previous_trading_day(saturday)
+        assert result == date(2024, 1, 5)  # Friday
+
+    def test_sunday_snaps_to_friday(self):
+        sunday = date(2024, 1, 7)
+        result = previous_trading_day(sunday)
+        assert result == date(2024, 1, 5)  # Friday
+
+    def test_holiday_snaps_to_prior_session(self):
+        """Lunar New Year 2024: Feb 9 (Fri) was a KRX holiday.
+        Previous trading day should be Feb 8 (Thu)."""
+        holiday = date(2024, 2, 9)
+        result = previous_trading_day(holiday)
+        assert result == date(2024, 2, 8)  # Thursday before 설날
+
+    def test_result_is_always_before_or_equal_to_input(self):
+        d = date(2024, 3, 15)
+        result = previous_trading_day(d)
+        assert result <= d
 
 
 class TestSecondThursdayOfMonth:

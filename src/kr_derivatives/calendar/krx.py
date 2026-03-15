@@ -34,6 +34,32 @@ def next_trading_day(d: date) -> date:
     raise RuntimeError(f"Could not find next trading day within 30 days of {d}")
 
 
+def previous_trading_day(d: date) -> date:
+    """Return the most recent KRX trading day on or before the given date.
+
+    If the date is itself a trading day, it is returned unchanged.
+    Use this to snap a board-meeting date (which may fall on a weekend or
+    public holiday) to the last available closing price before the meeting.
+
+    Args:
+        d: Calendar date to snap backward from.
+
+    Returns:
+        The date itself if it is a KRX session, otherwise the nearest
+        prior session.
+
+    Raises:
+        RuntimeError: If no trading day is found within 30 days prior.
+    """
+    cal = _get_calendar()
+    candidate = d
+    for _ in range(30):  # max 30 days back (covers long holiday blocks)
+        if cal.is_session(candidate.isoformat()):
+            return candidate
+        candidate = candidate - timedelta(days=1)
+    raise RuntimeError(f"Could not find previous trading day within 30 days of {d}")
+
+
 def second_thursday_of_month(year: int, month: int) -> date:
     """Return the second Thursday of the given month.
 

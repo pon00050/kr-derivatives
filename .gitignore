@@ -5,6 +5,9 @@ knowledge/
 data/cache/
 *.db
 
+# Pipeline inputs from kr-forensic-finance (not committed — copy manually)
+data/input/
+
 # Python
 .venv/
 __pycache__/
@@ -34,4 +37,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pipeline output (not source data)
+issuance_dilution_scores.csv
 
