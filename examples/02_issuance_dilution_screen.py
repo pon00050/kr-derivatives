@@ -25,13 +25,16 @@ import pandas as pd
 from kr_derivatives.calendar.krx import previous_trading_day
 from kr_derivatives.contracts.convertible_bond import CBSpec
 from kr_derivatives.forensic.repricing import cb_issuance_score
-from kr_derivatives.utils.constants import KTB_DEFAULT_RATE
+from kr_derivatives.market.volatility import compute_hist_vol
+from kr_derivatives.utils.constants import (
+    DEFAULT_VOL_WINDOW,
+    KTB_DEFAULT_RATE,
+    MAX_BOARD_ISSUE_GAP_DAYS,
+    MIN_HIST_DAYS_FOR_VOL_FOR_VOL,
+    SIGMA_FALLBACK,
+)
 
-# Sigma assumption: KOSDAQ small-cap realized vol is typically 35–50%.
-# A uniform 0.40 is used here as a screening baseline. It affects bs_call_value
-# but not dilution_flag, which depends only on moneyness (S/K > 1.0).
-SIGMA = 0.40
-R = KTB_DEFAULT_RATE  # 3.5% — BOK KTB 10Y default; replace with fetch_ktb_rate() if key set
+R = KTB_DEFAULT_RATE
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "input"
 
@@ -90,12 +93,64 @@ def build_price_lookup(
         warnings.warn(f"{no_price} rows have no price on snapped date — skipped")
         cb = cb.dropna(subset=["close"])
 
+    # Change 2: Exclude rows where board_date → issue_date gap > MAX_BOARD_ISSUE_GAP_DAYS
+    cb["issue_date"] = pd.to_datetime(cb["issue_date"]).dt.date
+    cb["gap_days"] = cb.apply(
+        lambda r: (r["issue_date"] - r["board_date"]).days
+        if r["issue_date"] is not None and r["board_date"] is not None
+        else 0,
+        axis=1,
+    )
+    stale = (cb["gap_days"] > MAX_BOARD_ISSUE_GAP_DAYS).sum()
+    if stale:
+        warnings.warn(
+            f"{stale} rows excluded: price reference >{MAX_BOARD_ISSUE_GAP_DAYS} days before issue_date"
+        )
+        cb = cb[cb["gap_days"] <= MAX_BOARD_ISSUE_GAP_DAYS]
+
+    # Change 3: Flag rows where board_date was defaulted to issue_date
+    cb["board_date_is_approximate"] = cb["board_date"] == cb["issue_date"]
+
     return cb
 
 
-def run_screen(joined: pd.DataFrame) -> pd.DataFrame:
+def build_vol_lookup(
+    pv: pd.DataFrame,
+    window: int = DEFAULT_VOL_WINDOW,
+) -> dict[tuple[str, object], float]:
+    """Pre-compute per-ticker trailing volatility for every (ticker, date) pair.
+
+    Returns a dict mapping (ticker, date) → annualized vol. Rows with
+    insufficient history get no entry (caller should use SIGMA_FALLBACK).
+    """
+    vol_map: dict[tuple[str, object], float] = {}
+    pv = pv.copy()
+    pv["date"] = pd.to_datetime(pv["date"]).dt.date
+    pv = pv.sort_values(["ticker", "date"])
+
+    for ticker, group in pv.groupby("ticker"):
+        prices = group["close"].values
+        dates = group["date"].values
+        for i in range(len(dates)):
+            if i + 1 < MIN_HIST_DAYS_FOR_VOL:
+                continue
+            start = max(0, i + 1 - window)
+            segment = pd.Series(prices[start : i + 1])
+            try:
+                vol_map[(ticker, dates[i])] = compute_hist_vol(segment, window=window)
+            except ValueError:
+                continue
+
+    return vol_map
+
+
+def run_screen(
+    joined: pd.DataFrame,
+    vol_lookup: dict[tuple[str, object], float],
+) -> pd.DataFrame:
     results = []
     skipped = 0
+    fallback_count = 0
 
     for _, row in joined.iterrows():
         if pd.isna(row.get("exercise_price")):
@@ -107,16 +162,26 @@ def run_screen(joined: pd.DataFrame) -> pd.DataFrame:
             skipped += 1
             continue
 
+        sigma = vol_lookup.get(
+            (row["ticker"], row["price_date"]), SIGMA_FALLBACK
+        )
+        if sigma == SIGMA_FALLBACK:
+            fallback_count += 1
+
         score = cb_issuance_score(
             cb,
             stock_price=float(row["close"]),
-            sigma=SIGMA,
+            sigma=sigma,
             r=R,
         )
+        score["sigma"] = sigma
+        score["board_date_is_approximate"] = row["board_date_is_approximate"]
         results.append(score)
 
     if skipped:
         print(f"  Skipped {skipped} rows (missing exercise_price or invalid spec)")
+    if fallback_count:
+        print(f"  {fallback_count} rows used fallback sigma={SIGMA_FALLBACK:.0%} (insufficient price history)")
 
     return pd.DataFrame(results)
 
@@ -132,8 +197,12 @@ def main() -> None:
     joined = build_price_lookup(cb, tm, pv)
     print(f"  Rows with price: {len(joined):,}")
 
-    print(f"\nScoring (sigma={SIGMA:.0%}, r={R:.1%})...")
-    out = run_screen(joined)
+    print("\nComputing per-ticker trailing volatility...")
+    vol_lookup = build_vol_lookup(pv)
+    print(f"  Volatilities computed for {len(vol_lookup):,} (ticker, date) pairs")
+
+    print(f"\nScoring (per-ticker sigma, fallback={SIGMA_FALLBACK:.0%}, r={R:.1%})...")
+    out = run_screen(joined, vol_lookup)
 
     if out.empty:
         print("No results.")

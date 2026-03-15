@@ -144,16 +144,27 @@ split-adjustment issue.
 
 ## Pre-Run Checklist
 
-- [ ] `price_volume.parquet` regenerated with split-adjusted prices (Option A)
+- [x] `price_volume.parquet` regenerated with split-adjusted prices (Option A) — XB-001 fixed 2026-03-15
 - [ ] Ticker 224060 Nov 2016 price verified — should be split-adjusted to ~740–2,000 range
-- [ ] Gap filter (>365 days) added and tested on a sample
-- [ ] `board_date_is_approximate` column added to output
-- [ ] `sigma` per-ticker vol computation profiled for runtime
+- [x] Gap filter (>365 days) added and tested on a sample — `MAX_BOARD_ISSUE_GAP_DAYS` in constants.py
+- [x] `board_date_is_approximate` column added to output — flags board_date == issue_date
+- [x] `sigma` per-ticker vol computation implemented — `build_vol_lookup()` with `compute_hist_vol()`
 - [ ] New `price_volume.parquet` copied to `data/input/`
-- [ ] Full suite still green: `uv run python -m pytest tests/ -q`
+- [x] Full suite still green: `uv run python -m pytest tests/ -q` — 79 passed
+- [ ] Runtime profiled for per-ticker vol computation
 
 ---
 
 ## Operational Notes
 
-*(to be filled in during the run)*
+### 2026-03-15 — Wave 1 code changes implemented
+
+Changes 2–4 implemented in `examples/02_issuance_dilution_screen.py`:
+
+1. **Change 2 (gap filter):** Rows where `board_date → issue_date` gap exceeds 365 days are excluded with a warning. Constant `MAX_BOARD_ISSUE_GAP_DAYS = 365` added to `constants.py`.
+
+2. **Change 3 (approximate flag):** New `board_date_is_approximate` boolean column in output. `True` when `board_date == issue_date` (DART defaulted the board date).
+
+3. **Change 4 (per-ticker vol):** `build_vol_lookup()` pre-computes trailing 252-day realized vol for every (ticker, date) pair in `price_volume.parquet`. Falls back to `SIGMA_FALLBACK = 0.40` when fewer than 30 days of history exist. All constants moved to `constants.py`.
+
+**Remaining before run:** Copy new split-adjusted `price_volume.parquet` to `data/input/`, verify ticker 224060, profile runtime.
