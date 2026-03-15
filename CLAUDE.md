@@ -77,6 +77,9 @@ from kr_derivatives import (
 Level 1 fires when `moneyness (S/K) > 1.0` at issuance — conversion option already in-the-money.
 `composite_score` severity tiers: `high` (moneyness > 1.10), `medium` (> 1.00), `low`.
 
+**Known data quality issue — adjusted S vs unadjusted K:**
+Stock prices from pykrx are split-adjusted; DART exercise prices (cv_prc) are contractual snapshots at original denomination. For stocks with reverse splits/consolidations, this creates false extreme moneyness (e.g., 50-247x). After any screen run with outliers >10x, run `/diagnose-moneyness` from the toolkit hub (`../forensic-accounting-toolkit/`) to classify cases as split artifacts vs genuine ITM. See `reports/second_run_lessons.md` and `reports/third_run_prep.md` for the full investigation trail.
+
 **Why B-S is appropriate for Level 1:** The question is purely "was this option in-the-money at issuance?" — a single-point-in-time snapshot, not a full CB valuation. B-S prices a European call; we are not modelling the path-dependent hold-to-maturity CB value or early conversion. The static moneyness and `bs_call_value` at day zero are all that is needed to establish whether value was transferred to the bondholder at shareholders' expense. Full American/lattice pricing is only relevant for Level 2 (per-repricing event scoring over time).
 
 ### Test structure
