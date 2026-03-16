@@ -1,0 +1,8 @@
+corp_code,factor,effective_date_approx,source,notes
+00232007,10.0,2024-05-15,STOCK_TOTQY,"Q1_2024: 119.5M shares -> H1_2024: 11.9M = 10.0:1; not in crDecsn; supplements existing kadj=3.0 from crDecsn"
+00243979,10.0,2024-12-23,STOCK_TOTQY+LIST_JSON,"Q3_2024: 117.5M -> Annual_2024: 17.8M = 6.6:1 net; PAR_VALUE_CHANGE filing 2024-12-23; true denomination factor likely 10:1 (par 100->1000 pattern); net<10 due to post-consolidation issuances"
+00299464,10.0,2022-01-15,STOCK_TOTQY,"Annual_2021: 222M -> Annual_2022: 22.4M = 9.9:1; no crDecsn filing exists; clean 10:1 with rounding from concurrent issuances"
+00519252,10.0,2024-01-15,IRDS_STTUS+STOCK_TOTQY,"Annual_2023: 185.7M -> Q1_2024: 20.3M = 9.1:1 net; par 100->1000 confirmed from irdsSttus 2024 entries; -71% price drop (2023-01) was NOT a consolidation per stockTotqySttus"
+00175623,10.0,2020-12-15,STOCK_TOTQY,"Q3_2020: 135.6M -> Q1_2021: 13.6M = exactly 10.0:1; no crDecsn filing exists; previously classified INCONCLUSIVE now confirmed SPLIT_ARTIFACT"
+01003040,10.0,2024-10-15,IRDS_STTUS+STOCK_TOTQY,"Q3_2024: 70.7M -> Annual_2024: 7.07M = exactly 10.0:1; par 100->1000 confirmed from irdsSttus (date=2024.10.15 par_value=1000)"
+00475718,40.0,2020-03-09,CR_DECSN_DATE_RECOVERY,"crDecsn had NaN cr_std; recovered crsc_nstklstprd=2020-03-09; 40:1 consolidation (40 shares->1 share per cr_mth); factor is ADDITIONAL to pipeline kadj=2.0 from separate 2:1 event; applies only to CBs issued before 2020-03-09; 0 rows in current scored output (company filtered by screen)"

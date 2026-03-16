@@ -41,7 +41,7 @@ Formal post-mortem of the completed screen run. Contains:
 | 1 | — | `first_run_lessons.md` | Initial real-price run (board_date join via `previous_trading_day`) | 49.3% | Unadjusted price contamination identified; clean signal ~22% |
 | 2 | `second_run_prep.md` | `second_run_lessons.md` | Split-adjusted prices + gap filter + per-ticker vol | 49.3% | Denomination mismatch found: adjusted S vs unadjusted K |
 | 3 | `third_run_prep.md` | `third_run_lessons.md` | Adjust K via DART corporate actions (Path B) | 34.0% | Flag rate -15.3pp, extreme moneyness -87%; 32 outliers remain |
-| 4 | `fourth_run_prep.md` | — | Resolve 32 remaining >10x outliers | — | — |
+| 4 | `fourth_run_prep.md` | `fourth_run_lessons.md` | Manual K adj + exclusions via curated CSVs (DART stockTotqySttus research) | 33.1% | >10x: 32→4 (only GENUINE_ITM remain); 6 rows excluded |
 
 ---
 

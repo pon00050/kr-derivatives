@@ -37,6 +37,7 @@ from kr_derivatives.utils.constants import (
 R = KTB_DEFAULT_RATE
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "input"
+CURATED_DIR = Path(__file__).parent.parent / "data" / "curated"
 
 
 def load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None]:
@@ -48,29 +49,70 @@ def load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFram
     return cb, tm, pv, ca
 
 
+def load_manual_k_adjustments() -> pd.DataFrame | None:
+    """Load manual K adjustment factors from curated CSV.
+
+    These capture denomination-changing events invisible to crDecsn.json
+    (stock splits, par value changes, consolidations filed under other types).
+    """
+    path = CURATED_DIR / "manual_k_adjustments.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
+def load_excluded_corp_codes() -> set[str]:
+    """Load corp codes to exclude from scoring (DATA_INSUFFICIENT etc.)."""
+    path = CURATED_DIR / "excluded_corp_codes.csv"
+    if not path.exists():
+        return set()
+    df = pd.read_csv(path)
+    return {str(cc).zfill(8) for cc in df["corp_code"]}
+
+
 def build_adjustment_factors(
     ca: pd.DataFrame | None,
+    manual: pd.DataFrame | None = None,
 ) -> dict[str, list[tuple[object, float]]]:
     """Build a lookup of (effective_date, consolidation_ratio) per corp_code.
 
     Returns dict mapping corp_code → sorted list of (effective_date, factor)
     where factor = shares_before / shares_after (e.g. 10.0 for a 10:1 consolidation).
+
+    Merges two sources:
+    1. corp_actions.parquet (pipeline-extracted crDecsn events)
+    2. manual_k_adjustments.csv (curated overrides for events invisible to crDecsn)
     """
-    if ca is None or ca.empty:
-        return {}
-
-    ca = ca.copy()
-    ca["effective_date"] = pd.to_datetime(ca["effective_date"], errors="coerce").dt.date
-    ca = ca.dropna(subset=["effective_date", "shares_before", "shares_after"])
-    ca = ca[ca["shares_after"] > 0]
-
     result: dict[str, list[tuple[object, float]]] = {}
-    for _, row in ca.iterrows():
-        cc = str(row["corp_code"]).zfill(8)
-        factor = row["shares_before"] / row["shares_after"]
-        if factor <= 1.0:
-            continue  # Not a consolidation (could be a partial cancellation)
-        result.setdefault(cc, []).append((row["effective_date"], factor))
+
+    # Source 1: corp_actions.parquet
+    if ca is not None and not ca.empty:
+        ca = ca.copy()
+        ca["effective_date"] = pd.to_datetime(ca["effective_date"], errors="coerce").dt.date
+        ca = ca.dropna(subset=["effective_date", "shares_before", "shares_after"])
+        ca = ca[ca["shares_after"] > 0]
+
+        for _, row in ca.iterrows():
+            cc = str(row["corp_code"]).zfill(8)
+            factor = row["shares_before"] / row["shares_after"]
+            if factor <= 1.0:
+                continue
+            result.setdefault(cc, []).append((row["effective_date"], factor))
+
+    # Source 2: manual_k_adjustments.csv
+    if manual is not None and not manual.empty:
+        manual = manual.copy()
+        manual["effective_date_approx"] = pd.to_datetime(
+            manual["effective_date_approx"], errors="coerce"
+        ).dt.date
+        manual = manual.dropna(subset=["effective_date_approx", "factor"])
+
+        for _, row in manual.iterrows():
+            cc = str(row["corp_code"]).zfill(8)
+            factor = float(row["factor"])
+            if factor <= 1.0:
+                continue
+            result.setdefault(cc, []).append((row["effective_date_approx"], factor))
 
     # Sort by date ascending
     for cc in result:
@@ -102,6 +144,8 @@ def build_price_lookup(
     tm: pd.DataFrame,
     pv: pd.DataFrame,
     ca: pd.DataFrame | None = None,
+    manual_k: pd.DataFrame | None = None,
+    excluded: set[str] | None = None,
 ) -> pd.DataFrame:
     """Join cb_bw_events to closing price on the last KRX trading day on or
     before each board_date.
@@ -119,6 +163,15 @@ def build_price_lookup(
     if null_dates:
         warnings.warn(f"{null_dates} rows have no board_date — skipped")
         cb = cb.dropna(subset=["board_date"])
+
+    # Exclude corp codes with insufficient data for reliable scoring
+    if excluded:
+        cb["_cc"] = cb["corp_code"].astype(str).str.zfill(8)
+        excluded_count = cb["_cc"].isin(excluded).sum()
+        if excluded_count:
+            print(f"  {excluded_count} rows excluded (corp codes in excluded_corp_codes.csv)")
+            cb = cb[~cb["_cc"].isin(excluded)]
+        cb = cb.drop(columns=["_cc"])
 
     # Step 1: corp_code → ticker
     cb = cb.merge(tm[["corp_code", "ticker"]], on="corp_code", how="left")
@@ -164,7 +217,7 @@ def build_price_lookup(
     cb["board_date_is_approximate"] = cb["board_date"] == cb["issue_date"]
 
     # Change 4: Adjust exercise_price for post-issuance share consolidations
-    adj_factors = build_adjustment_factors(ca)
+    adj_factors = build_adjustment_factors(ca, manual=manual_k)
     adjusted_count = 0
     if adj_factors:
         factors = []
@@ -266,6 +319,8 @@ def run_screen(
 def main() -> None:
     print("Loading inputs...")
     cb, tm, pv, ca = load_inputs()
+    manual_k = load_manual_k_adjustments()
+    excluded = load_excluded_corp_codes()
     print(f"  cb_bw_events:    {len(cb):,} rows")
     print(f"  corp_ticker_map: {len(tm):,} rows")
     print(f"  price_volume:    {len(pv):,} rows")
@@ -273,9 +328,13 @@ def main() -> None:
         print(f"  corp_actions:    {len(ca):,} rows")
     else:
         print("  corp_actions:    not found (no K adjustment)")
+    if manual_k is not None:
+        print(f"  manual_k_adj:    {len(manual_k):,} entries")
+    if excluded:
+        print(f"  excluded corps:  {len(excluded):,}")
 
     print("\nJoining to closing prices...")
-    joined = build_price_lookup(cb, tm, pv, ca)
+    joined = build_price_lookup(cb, tm, pv, ca, manual_k=manual_k, excluded=excluded)
     print(f"  Rows with price: {len(joined):,}")
 
     print("\nComputing per-ticker trailing volatility...")

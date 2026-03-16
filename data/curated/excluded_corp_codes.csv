@@ -1,0 +1,2 @@
+corp_code,reason,notes
+00349811,DATA_INSUFFICIENT,"3:1 from STOCK_TOTQY (2020->2021) confirmed but additional 2024-2025 events (CONSOLIDATION 2024-11-14 + SPLIT 2024-12-24 + CONSOLIDATION 2025-01-07 + PAR_VALUE_CHANGE 2025-01-31) have unknown net factor; 2024 annual shows no net drop (144M->169M) suggesting events partially offset; cannot determine complete adjustment"
