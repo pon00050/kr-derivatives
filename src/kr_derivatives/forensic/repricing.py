@@ -7,7 +7,9 @@ Level 1 — At-issuance dilution (SEIBRO-independent, uses DART exercise_price):
 
 Level 2 — Per-repricing coercion (requires SEIBRO data, Phase 2):
     repricing_coercion_score() — compares each repricing price to BS fair value.
-    Currently raises NotImplementedError until SEIBRO key activates (KI-012).
+    Currently raises NotImplementedError. DEFERRED until end of April 2026 —
+    공공데이터포털 is revising the SEIBRO dataset/API (KSD not cooperating with
+    data.go.kr). See KI-012 in kr-forensic-finance and XB-002 in the hub.
 """
 
 from __future__ import annotations

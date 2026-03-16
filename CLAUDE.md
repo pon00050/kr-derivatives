@@ -95,7 +95,7 @@ Stock prices from pykrx are split-adjusted; DART exercise prices (cv_prc) are co
 | Gap | Why | Status |
 |-----|-----|--------|
 | T=0 degenerate row — no guard in `CBSpec.time_to_expiry()` | One row where `maturity_date == valuation_date`; B-S returns intrinsic, greeks return `nan` — behavior is correct but undocumented | Unblocked — low priority |
-| Phase 2 stubs (`svi.py`, `interpolation.py`, `krx_reader.py`, `repricing.py`) | Blocked on KRX Open API key + SEIBRO API (XB-002) | Blocked — external |
+| Phase 2 stubs (`svi.py`, `interpolation.py`, `krx_reader.py`, `repricing.py`) | Blocked on KRX Open API key + SEIBRO API (XB-002, DEFERRED until end of April 2026 — 공공데이터포털 revising API) | Blocked — external |
 | 53.6% sigma fallback rate in screen output | KOSDAQ micro-caps lack 30+ days price history; uses `SIGMA_FALLBACK=0.40` | By design — see `fourth_run_lessons.md` |
 
 ---
@@ -121,3 +121,4 @@ Before starting Phase 2 KRX data access:
 Before implementing `repricing_coercion_score`:
 - SEIBRO API key must be active (see KI-012 in kr-forensic-finance)
 - `repricing_history` column in `cb_bw_events.parquet` must be non-empty
+- **DEFERRED until end of April 2026** — 공공데이터포털 is revising the SEIBRO dataset/API (KSD not cooperating). Do not attempt until the revised API launches.
