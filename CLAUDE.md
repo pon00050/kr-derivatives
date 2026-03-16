@@ -90,6 +90,20 @@ Stock prices from pykrx are split-adjusted; DART exercise prices (cv_prc) are co
 
 ---
 
+## Known Gaps
+
+| Gap | Why | Status |
+|-----|-----|--------|
+| `greeks.py` — zero test coverage (delta, gamma, vega, theta, rho) | Implemented in Phase 1, tests never written | Unblocked |
+| `signals.py` `composite_score()` — zero test coverage | Same | Unblocked |
+| `WarrantSpec` in `contracts/warrant.py` — no tests | Same | Unblocked |
+| Dead constant `COL_CLOSE_UNADJ` in `utils/constants.py:25` | Path B (adjust K) made it unnecessary after Run 3 | Unblocked — delete |
+| T=0 degenerate row — no guard in `CBSpec.time_to_expiry()` | One row where `maturity_date == valuation_date`; B-S is degenerate | Unblocked — low priority |
+| Phase 2 stubs (`svi.py`, `interpolation.py`, `krx_reader.py`, `repricing.py`) | Blocked on KRX Open API key + SEIBRO API (XB-002) | Blocked — external |
+| 53.6% sigma fallback rate in screen output | KOSDAQ micro-caps lack 30+ days price history; uses `SIGMA_FALLBACK=0.40` | By design — see `fourth_run_lessons.md` |
+
+---
+
 ## Conventions
 
 - **No py_vollib dependency.** IV solver is pure scipy (Newton-Raphson + Brent fallback). py_vollib has no Python 3.11 wheels.
