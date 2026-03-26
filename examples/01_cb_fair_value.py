@@ -1,6 +1,6 @@
 """Example 1: Price a Korean convertible bond embedded option.
 
-Standalone — no kr-forensic-finance dependency required.
+Standalone — no external pipeline data required.
 All parameters passed explicitly.
 
 Usage:

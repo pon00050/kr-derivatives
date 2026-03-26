@@ -3,7 +3,7 @@
 Joins cb_bw_events → corp_ticker_map → price_volume to obtain the actual
 closing price on (or immediately before) each CB's board meeting date.
 
-Inputs (copy from kr-forensic-finance/01_Data/processed/ — see data/input/README.md):
+Inputs (copy from kr-dart-pipeline/01_Data/processed/ — see data/input/README.md):
     data/input/cb_bw_events.parquet
     data/input/corp_ticker_map.parquet
     data/input/price_volume.parquet

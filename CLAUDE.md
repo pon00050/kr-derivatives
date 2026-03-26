@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Korean derivatives pricing and forensic analytics package.
-Standalone — no filesystem dependency on krff-shell.
+Standalone — reads data files from kr-dart-pipeline outputs; no code import dependencies.
 
 ## Ecosystem
 

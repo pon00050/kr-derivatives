@@ -12,7 +12,7 @@ Queries three DART endpoints to gather authoritative share count data:
 
 Dependencies:
   - requests, python-dotenv (both in kr-derivatives' pyproject.toml)
-  - DART_API_KEY from kr-forensic-finance/.env (read by path)
+  - DART_API_KEY from krff-shell/.env (read by path)
 
 Output: Prints structured findings per company. Does NOT modify any files.
 
@@ -39,10 +39,10 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-# ─── DART API infrastructure (standalone, no kr-forensic-finance imports) ──────
+# ─── DART API infrastructure (standalone, no external code imports) ──────────────
 
-# Load DART_API_KEY from kr-forensic-finance's .env
-_KR_FF_ENV = Path(__file__).resolve().parent.parent.parent / "kr-forensic-finance" / ".env"
+# Load DART_API_KEY from krff-shell's .env
+_KR_FF_ENV = Path(__file__).resolve().parent.parent.parent / "krff-shell" / ".env"
 load_dotenv(_KR_FF_ENV)
 
 DART_STATUS_OK = "000"
