@@ -70,7 +70,7 @@ def newton_iv(
         diff = price - market_price
         if abs(diff) < tol:
             return sigma
-        v = vega(S, K, T, r, sigma) * 100  # vega returns per 1%, multiply back
+        v = vega(S, K, T, r, sigma) * 100  # vega() returns per 1% vol; *100 recovers raw dV/dσ for Newton step
         if abs(v) < 1e-12:
             break  # near-zero vega — fall through to bisection
         sigma = sigma - diff / v

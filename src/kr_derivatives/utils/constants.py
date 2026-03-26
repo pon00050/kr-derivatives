@@ -14,7 +14,15 @@ KTB_DEFAULT_RATE = 0.035  # 3.5% — used when FRED fetch fails
 
 # Volatility computation
 DEFAULT_VOL_WINDOW = 252  # trading days
-ANNUALIZATION_FACTOR = 252  # sqrt(252) used for annualizing daily vol
+ANNUALIZATION_FACTOR = 252  # sqrt(252) used for annualizing daily log-returns → annual sigma
+
+# Day-count convention note:
+# T (time to expiry) uses calendar days / 365.0 — standard for option pricing.
+# sigma is annualized using 252 trading days — standard for volatility estimation
+#   from daily log-returns (daily_vol * sqrt(252)).
+# Using 365 for T and 252 for sigma is the accepted market practice; they operate
+# on different quantities (calendar time vs. trading-day vol) and are intentionally
+# distinct. Do not "fix" them to a single convention.
 
 # Screening defaults
 MIN_HIST_DAYS_FOR_VOL = 30  # Minimum trading days to compute per-ticker vol

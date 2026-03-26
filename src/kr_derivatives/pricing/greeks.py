@@ -36,7 +36,13 @@ def gamma(S: float, K: float, T: float, r: float, sigma: float) -> float:
 def vega(S: float, K: float, T: float, r: float, sigma: float) -> float:
     """Option vega (dV/dσ). Same for calls and puts.
 
-    Returns vega per 1% move in vol (divided by 100 for standard quoting).
+    Returns vega per 1% move in vol (i.e. raw dV/dσ divided by 100).
+
+    Convention note: the raw Black-Scholes vega is dV/dσ (per unit of sigma).
+    Practitioners quote vega as "KRW change per 1 vol-point (= 1% = 0.01 in
+    sigma units)", so we divide by 100 here.  The IV solver (implied_vol.py)
+    multiplies by 100 to recover dV/dσ for Newton-Raphson; the net round-trip
+    is correct: vega()*100 == raw dV/dσ.
     """
     if T <= 0 or sigma <= 0:
         return float("nan")
