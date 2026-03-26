@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Korean derivatives pricing and forensic analytics package.
-Standalone — no filesystem dependency on kr-forensic-finance.
+Standalone — no filesystem dependency on krff-shell.
 
 ## Ecosystem
 
@@ -11,8 +11,8 @@ Part of the Korean forensic accounting toolkit.
 - Hub: `../forensic-accounting-toolkit/` | [GitHub](https://github.com/pon00050/forensic-accounting-toolkit)
 - Task board: https://github.com/users/pon00050/projects/1
 - Role: Analysis library
-- Depends on: none (reads data files from kr-forensic-finance, not code imports)
-- Consumed by: kr-forensic-finance (CB/BW scoring via MCP tool #11)
+- Depends on: none (reads data files from kr-dart-pipeline outputs, not code imports)
+- Consumed by: krff-shell (CB/BW scoring via MCP tool #11)
 
 ---
 
@@ -119,6 +119,6 @@ Before starting Phase 2 KRX data access:
 - Register at `openapi.krx.co.kr` to obtain KRX Open API key
 
 Before implementing `repricing_coercion_score`:
-- SEIBRO API key must be active (see KI-012 in kr-forensic-finance)
+- SEIBRO API key must be active (see KI-012 in krff-shell)
 - `repricing_history` column in `cb_bw_events.parquet` must be non-empty
 - **DEFERRED until end of April 2026** — 공공데이터포털 is revising the SEIBRO dataset/API (KSD not cooperating). Do not attempt until the revised API launches.
