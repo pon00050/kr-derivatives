@@ -5,7 +5,7 @@ knowledge/
 data/cache/
 *.db
 
-# Pipeline inputs from kr-forensic-finance (not committed — copy manually)
+# Pipeline inputs from krff-shell (not committed — copy via ecosystem.sh copy-parquets)
 data/input/
 
 # Python
@@ -33,7 +33,6 @@ htmlcov/
 # IDE / Tool caches
 .vscode/
 .idea/
-.claude/
 
 # OS
 .DS_Store

@@ -22,7 +22,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-fast = ["py_vollib>=1.0.1"]
 advanced = ["financepy>=0.370"]
 dev = [
     "pytest>=7.0",
