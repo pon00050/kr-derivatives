@@ -1,5 +1,7 @@
 # kr-derivatives
 
+**[Read the full write-up →](https://ronanwrites.vercel.app/manuals/cb-bw-dilution-screen-without-seibro)**
+
 Korean derivatives pricing and forensic analytics — CB/BW embedded option valuation and repricing coercion detection.
 
 ## The problem
@@ -47,7 +49,7 @@ That runs an option-theoretic dilution screen over 3,279 KOSDAQ CBs with non-nul
 ## Install
 
 ```bash
-pip install kr-derivatives
+uv add git+https://github.com/pon00050/kr-derivatives
 ```
 
 ## Quick start

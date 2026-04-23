@@ -122,3 +122,8 @@ Before implementing `repricing_coercion_score`:
 - SEIBRO API key must be active (see KI-012 in krff-shell)
 - `repricing_history` column in `cb_bw_events.parquet` must be non-empty
 - **DEFERRED until end of April 2026** — 공공데이터포털 is revising the SEIBRO dataset/API (KSD not cooperating). Do not attempt until the revised API launches.
+
+
+---
+
+**Domain knowledge** (regulatory analysis, buyer research, competitive intelligence, legal compliance) belongs in the hub vault: `forensic-accounting-toolkit/knowledge/`. Engineering docs (API patterns, test strategies, run logs) stay here. After creating a new domain knowledge note, copy it to the hub with gold-standard frontmatter. See hub `CLAUDE.md` §Knowledge Vault for the frontmatter contract.
